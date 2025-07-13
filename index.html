@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Absensi Pembimbing</title>
     
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6"/>
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/3b82f6/ffffff?text=Absen">
+    <link rel="manifest" id="manifest">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -73,6 +78,13 @@
             cursor: not-allowed;
             opacity: 0.7;
         }
+        .btn-secondary {
+            background-color: #4b5563;
+            color: white;
+        }
+        .btn-secondary:hover {
+             background-color: #6b7280;
+        }
         
         .toast {
             position: fixed; top: 1.25rem; right: 1.25rem; color: white;
@@ -87,14 +99,21 @@
 
     <div class="max-w-4xl mx-auto space-y-6">
         <!-- Header -->
-        <header class="flex items-center gap-4">
-            <div class="bg-blue-600 p-3 rounded-lg">
-                <i data-lucide="user-check" class="w-8 h-8 text-white"></i>
+        <header class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-blue-600 p-3 rounded-lg">
+                    <i data-lucide="user-check" class="w-8 h-8 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-white">Absensi Pembimbing</h1>
+                    <p class="text-gray-400">Input absensi harian untuk pembimbing.</p>
+                </div>
             </div>
-            <div>
-                <h1 class="text-3xl font-bold text-white">Absensi Pembimbing</h1>
-                <p class="text-gray-400">Input absensi harian untuk pembimbing.</p>
-            </div>
+            <!-- Tombol Install Aplikasi -->
+            <button id="installAppBtn" class="btn btn-secondary hidden">
+                <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                <span>Install</span>
+            </button>
         </header>
 
         <!-- Input Absensi Card -->
@@ -136,6 +155,56 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- PWA Setup ---
+        function setupPWA() {
+            // 1. Generate manifest.json dynamically
+            const manifest = {
+                "name": "Absensi Pembimbing",
+                "short_name": "Absen",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#111827",
+                "theme_color": "#3b82f6",
+                "description": "Aplikasi untuk mencatat absensi pembimbing.",
+                "icons": [
+                    { "src": "https://placehold.co/192x192/3b82f6/ffffff?text=Absen", "type": "image/png", "sizes": "192x192" },
+                    { "src": "https://placehold.co/512x512/3b82f6/ffffff?text=Absen", "type": "image/png", "sizes": "512x512" }
+                ]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            document.querySelector('#manifest').setAttribute('href', manifestURL);
+
+            // 2. Handle "Add to Home Screen" prompt
+            let deferredPrompt;
+            const installBtn = document.getElementById('installAppBtn');
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                // Prevent the mini-infobar from appearing on mobile
+                e.preventDefault();
+                // Stash the event so it can be triggered later.
+                deferredPrompt = e;
+                // Update UI to notify the user they can install the PWA
+                installBtn.classList.remove('hidden');
+                console.log('`beforeinstallprompt` event was fired.');
+            });
+
+            installBtn.addEventListener('click', async () => {
+                // Hide the app provided install promotion
+                installBtn.classList.add('hidden');
+                // Show the install prompt
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    // Wait for the user to respond to the prompt
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to the install prompt: ${outcome}`);
+                    // We've used the prompt, and can't use it again, throw it away
+                    deferredPrompt = null;
+                }
+            });
+        }
+
 
         // --- Firebase Configuration ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -229,6 +298,7 @@
                 dom.attendanceDate.value = new Date().toISOString().split('T')[0];
                 renderMentorAttendanceList();
             } catch (error) {
+                console.error("Save Error: ", error);
                 showToast("Gagal menyimpan absensi.", true);
             } finally {
                 button.disabled = false;
@@ -255,6 +325,7 @@
         function initializePage() {
             dom.attendanceDate.value = new Date().toISOString().split('T')[0];
             lucide.createIcons();
+            setupPWA(); // Call the PWA setup function
         }
 
         initializePage();
