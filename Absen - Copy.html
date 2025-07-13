@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi & Rekapitulasi Pembimbing</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+            color: #d1d5db; /* text-gray-300 */
+        }
+
+        .card {
+            background-color: #1f2937; /* bg-gray-800 */
+            border: 1px solid #374151; /* border-gray-700 */
+            border-radius: 0.75rem; /* rounded-xl */
+        }
+
+        .form-input, .form-select, .form-checkbox {
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            color: #f9fafb;
+            border-radius: 0.5rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input, .form-select {
+             padding: 0.625rem 1rem;
+             width: 100%;
+        }
+        .form-checkbox {
+            color: #3b82f6;
+            height: 1.25rem;
+            width: 1.25rem;
+        }
+        .form-input:focus, .form-select:focus, .form-checkbox:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px #1f2937, 0 0 0 4px #3b82f6;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.625rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #2563eb;
+        }
+        .btn-primary:disabled {
+            background-color: #374151;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .toast {
+            position: fixed; top: 1.25rem; right: 1.25rem; color: white;
+            padding: 0.75rem 1.5rem; border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transform: translateX(120%); transition: transform 0.3s ease-in-out; z-index: 100;
+        }
+        .toast.show { transform: translateX(0); }
+        
+        .rekap-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .rekap-table th, .rekap-table td {
+            border: 1px solid #374151;
+            padding: 0.5rem;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .rekap-table th {
+            background-color: #374151;
+        }
+        .rekap-table .mentor-name {
+            text-align: left;
+            position: sticky;
+            left: 0;
+            background-color: #1f2937;
+            z-index: 10;
+        }
+        .rekap-table .waktu {
+            position: sticky;
+            left: 150px; /* Adjust this based on mentor-name width */
+            background-color: #1f2937;
+        }
+        .rekap-table .holiday-cell { /* New class for holiday cells */
+            background-color: #7f1d1d; /* bg-red-900 */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Header -->
+        <header class="flex items-center gap-4">
+            <div class="bg-blue-600 p-3 rounded-lg">
+                <i data-lucide="user-check" class="w-8 h-8 text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-white">Absensi & Rekap Pembimbing</h1>
+                <p class="text-gray-400">Input absensi harian dan lihat rekapitulasi kehadiran.</p>
+            </div>
+        </header>
+
+        <!-- Input Absensi Card -->
+        <div class="card p-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Input Absensi Harian</h2>
+            <form id="attendanceForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="attendanceDate" class="block mb-2 font-medium">Tanggal</label>
+                        <input type="date" id="attendanceDate" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="block mb-2 font-medium">Sesi</label>
+                        <div class="flex gap-4 h-full items-center">
+                            <label class="flex items-center gap-2"><input type="radio" name="session" value="pagi" class="form-checkbox" checked> Pagi</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="session" value="sore" class="form-checkbox"> Sore</label>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-2 font-medium">Absensi Pembimbing</label>
+                    <p class="text-sm text-gray-400 mb-2">Semua pembimbing dianggap hadir. Centang nama yang tidak hadir.</p>
+                    <div id="attendanceMentorList" class="space-y-2 max-h-64 overflow-y-auto p-2 bg-gray-900 rounded-md"></div>
+                </div>
+                <div class="pt-2 text-right">
+                    <button type="submit" id="saveAttendanceBtn" class="btn btn-primary"><i data-lucide="save" class="w-4 h-4 mr-2"></i><span>Simpan Absensi</span></button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Rekapitulasi Section -->
+        <div id="rekapContainer">
+            <div class="card p-6">
+                 <h2 id="rekapTitle" class="text-xl font-semibold text-white mb-4">Rekapitulasi Kehadiran</h2>
+                 <div id="rekapLoader" class="text-center py-8">Memuat data rekapitulasi...</div>
+                 <div id="rekapTableWrapper" class="overflow-x-auto"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <p id="toastMessage"></p>
+    </div>
+
+    <script type="module">
+        // --- Firebase SDK Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, query, where, doc, setDoc, Timestamp, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Configuration ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyBzvOsp5EVnzTI8Kbew9nXSXXLpakBD6Ec",
+            authDomain: "ltq-hn.firebaseapp.com",
+            projectId: "ltq-hn",
+            storageBucket: "ltq-hn.appspot.com",
+            messagingSenderId: "542731528480",
+            appId: "1:542731528480:web:15203f68716ed2e3dacf45"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Initialize Firebase ---
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // --- Global State ---
+        let allMentors = [];
+        let activePeriod = null;
+        let currentUserId = null;
+        let unsubscribes = {};
+        let allHolidays = []; // Store all holidays from Firestore
+        let selectedFilterMonthValue = null; // Filter value from localStorage
+        let selectedFilterYearValue = null; // Filter value from localStorage
+
+        // --- DOM Elements ---
+        const dom = {
+            attendanceForm: document.getElementById('attendanceForm'),
+            attendanceDate: document.getElementById('attendanceDate'),
+            attendanceMentorList: document.getElementById('attendanceMentorList'),
+            saveAttendanceBtn: document.getElementById('saveAttendanceBtn'),
+            rekapContainer: document.getElementById('rekapContainer'),
+            rekapTitle: document.getElementById('rekapTitle'),
+            rekapLoader: document.getElementById('rekapLoader'),
+            rekapTableWrapper: document.getElementById('rekapTableWrapper'),
+        };
+
+        // --- Authentication ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                fetchInitialData();
+            } else {
+                try { await (initialAuthToken ? signInWithCustomToken(auth, initialAuthToken) : signInAnonymously(auth)); } 
+                catch (error) { console.error("Authentication error:", error); }
+            }
+        });
+
+        // --- Data Fetching ---
+        async function fetchInitialData() {
+            // Load selected filter values from localStorage
+            selectedFilterMonthValue = localStorage.getItem('selectedMonthFilter');
+            selectedFilterYearValue = localStorage.getItem('selectedYearFilter');
+
+            // Set default to current month/year if not found in localStorage
+            if (!selectedFilterMonthValue) {
+                selectedFilterMonthValue = String(new Date().getMonth()).padStart(2, '0');
+            }
+            if (!selectedFilterYearValue) {
+                selectedFilterYearValue = new Date().getFullYear().toString();
+            }
+
+            // Fetch mentors
+            const mentorsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'mentors');
+            unsubscribes.mentors = onSnapshot(mentorsCollection, (snapshot) => {
+                allMentors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderMentorAttendanceList();
+            });
+
+            // Fetch all holidays
+            const holidayDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'holidays');
+            unsubscribes.holidays = onSnapshot(holidayDocRef, (docSnap) => {
+                allHolidays = docSnap.exists() ? docSnap.data().dates || [] : [];
+                // If activePeriod is already set, re-render rekap with updated holidays
+                if (activePeriod) {
+                    showRekapForPeriod(activePeriod);
+                }
+            });
+
+            // Fetch periods and find the one matching the selected filter
+            const periodsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'recapPeriods');
+            unsubscribes.periods = onSnapshot(periodsCollection, (snapshot) => {
+                const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Find the period that matches the selected displayMonthYear
+                const matchingPeriod = periods.find(p => p.displayMonthYear === `${selectedFilterYearValue}-${selectedFilterMonthValue}`);
+
+                if (matchingPeriod) {
+                    activePeriod = matchingPeriod;
+                    showRekapForPeriod(activePeriod);
+                } else {
+                    activePeriod = null; // No matching period found
+                    dom.rekapLoader.textContent = `Tidak ada periode rekap yang ditemukan untuk ${getMonthName(selectedFilterMonthValue)} ${selectedFilterYearValue}. Silakan buat di halaman Panel Admin.`;
+                    dom.rekapTableWrapper.innerHTML = ''; // Clear table
+                }
+            });
+        }
+
+        // --- UI Rendering ---
+        function renderMentorAttendanceList() {
+            const container = dom.attendanceMentorList;
+            container.innerHTML = '';
+            if (allMentors.length > 0) {
+                const sortedMentors = [...allMentors].sort((a, b) => a.name.localeCompare(b.name));
+                sortedMentors.forEach(mentor => {
+                    const label = document.createElement('label');
+                    label.className = 'flex items-center gap-3 p-2 rounded-md hover:bg-gray-700/50 cursor-pointer';
+                    label.innerHTML = `<input type="checkbox" data-mentor-name="${mentor.name}" class="form-checkbox absent-checkbox"><span class="text-gray-300">${mentor.name}</span>`;
+                    container.appendChild(label);
+                });
+            } else {
+                container.innerHTML = '<p class="text-gray-500">Memuat data pembimbing...</p>';
+            }
+        }
+
+        // --- Core Logic ---
+        async function handleSaveAttendance(e) {
+            e.preventDefault();
+            const date = dom.attendanceDate.value;
+            const session = dom.attendanceForm.querySelector('input[name="session"]:checked').value;
+            if (!date || !session) { showToast("Harap isi tanggal dan pilih sesi.", true); return; }
+
+            const button = dom.saveAttendanceBtn;
+            button.disabled = true;
+            button.innerHTML = `<span>Menyimpan...</span>`;
+            
+            const absentMentors = Array.from(dom.attendanceMentorList.querySelectorAll('.absent-checkbox:checked')).map(cb => cb.dataset.mentorName);
+            const presentMentors = allMentors.map(m => m.name).filter(name => !absentMentors.includes(name));
+            const docId = `${date}_${session}`;
+            const attendanceDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'dailyAttendance', docId);
+            const dataToSave = { date, session, absentMentors, presentMentors, timestamp: Timestamp.now(), recordedBy: currentUserId };
+
+            try {
+                await setDoc(attendanceDocRef, dataToSave);
+                showToast("Absensi berhasil disimpan.");
+                dom.attendanceForm.reset();
+                dom.attendanceDate.value = new Date().toISOString().split('T')[0];
+                renderMentorAttendanceList();
+                // Re-render rekap if the saved date is within the active period
+                if (activePeriod && date >= activePeriod.startDate && date <= activePeriod.endDate) {
+                    showRekapForPeriod(activePeriod);
+                }
+            } catch (error) {
+                showToast("Gagal menyimpan absensi.", true);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i><span>Simpan Absensi</span>`;
+                lucide.createIcons();
+            }
+        }
+
+        async function showRekapForPeriod(period) {
+            if (!period) {
+                dom.rekapLoader.textContent = `Tidak ada periode rekap yang ditemukan untuk ${getMonthName(selectedFilterMonthValue)} ${selectedFilterYearValue}. Silakan buat di halaman Panel Admin.`;
+                dom.rekapTableWrapper.innerHTML = '';
+                return;
+            }
+            dom.rekapLoader.classList.remove('hidden');
+            dom.rekapTableWrapper.innerHTML = '';
+            
+            // Set rekap title to the period's name
+            dom.rekapTitle.textContent = `Rekapitulasi Kehadiran: ${period.name}`;
+
+            try {
+                const attendanceRef = collection(db, 'artifacts', appId, 'public', 'data', 'dailyAttendance');
+                // Query attendance data for the *active period's* start and end dates
+                const q = query(attendanceRef, 
+                    where('date', '>=', period.startDate), 
+                    where('date', '<=', period.endDate)
+                );
+                const attendanceSnapshot = await getDocs(q);
+
+                const attendanceData = new Map();
+                attendanceSnapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const key = `${data.date}_${data.session}`;
+                    attendanceData.set(key, new Set(data.presentMentors));
+                });
+
+                // Filter holidays based on the *active period's* start and end dates
+                const holidaysForRender = allHolidays.filter(holiday => {
+                    const holidayDate = new Date(holiday.date + 'T00:00:00');
+                    const periodStartDateObj = new Date(period.startDate + 'T00:00:00');
+                    const periodEndDateObj = new Date(period.endDate + 'T00:00:00');
+                    
+                    return holidayDate >= periodStartDateObj && holidayDate <= periodEndDateObj;
+                });
+
+                renderRekapTable(period, attendanceData, holidaysForRender);
+            } catch (error) {
+                console.error("Error showing rekap:", error);
+                showToast("Gagal menampilkan rekap.", true);
+            } finally {
+                dom.rekapLoader.classList.add('hidden');
+            }
+        }
+
+        function toLocalDateString(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getMonthName(monthIndex) {
+            const months = [
+                "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+            ];
+            return months[parseInt(monthIndex, 10)];
+        }
+
+        function renderRekapTable(period, attendanceData, holidays) {
+            // Use the *active period's* start and end dates to determine the dates to display in the table header
+            const startParts = period.startDate.split('-').map(Number);
+            const endParts = period.endDate.split('-').map(Number);
+            const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+            const endDate = new Date(endParts[0], endParts[1] - 1, endParts[2]);
+            
+            const datesToDisplay = [];
+            for (let dt = new Date(startDate); dt <= endDate; dt.setDate(dt.getDate() + 1)) {
+                datesToDisplay.push(new Date(dt));
+            }
+
+            let tableHTML = `<table class="rekap-table"><thead><tr>`;
+            tableHTML += `<th class="mentor-name" rowspan="2" style="min-width: 150px;">Nama Pembimbing</th>`;
+            tableHTML += `<th class="waktu" rowspan="2">Sesi</th>`; 
+            
+            // Generate month headers dynamically based on the actual period dates
+            const monthHeaders = {};
+            datesToDisplay.forEach(date => {
+                const monthYear = date.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+                if (!monthHeaders[monthYear]) {
+                    monthHeaders[monthYear] = 0;
+                }
+                monthHeaders[monthYear]++;
+            });
+
+            for (const monthYear in monthHeaders) {
+                tableHTML += `<th colspan="${monthHeaders[monthYear]}">${monthYear}</th>`;
+            }
+            tableHTML += `<th rowspan="2">Total Hadir</th>`;
+            // Add new column for Percentage
+            tableHTML += `<th rowspan="2">Persentase Kehadiran</th>`; 
+            tableHTML += `</tr><tr>`;
+            datesToDisplay.forEach(date => {
+                tableHTML += `<th>${date.getDate()}</th>`;
+            });
+            tableHTML += `</tr></thead><tbody>`;
+
+            const sortedMentors = [...allMentors].sort((a, b) => a.name.localeCompare(b.name));
+            sortedMentors.forEach(mentor => {
+                let totalPagi = 0;
+                let totalSore = 0;
+                let possiblePagiAttendance = 0;
+                let possibleSoreAttendance = 0;
+                
+                // Calculate possible attendance days (excluding holidays) for Pagi and Sore sessions
+                datesToDisplay.forEach(date => {
+                    const dateString = toLocalDateString(date);
+                    const isHolidayPagi = holidays.some(h => h.date === dateString && (h.time === "Pagi" || h.time === "Pagi & Sore"));
+                    const isHolidaySore = holidays.some(h => h.date === dateString && (h.time === "Sore" || h.time === "Pagi & Sore"));
+
+                    if (!isHolidayPagi) {
+                        possiblePagiAttendance++;
+                    }
+                    if (!isHolidaySore) {
+                        possibleSoreAttendance++;
+                    }
+                });
+
+                // Pagi Row
+                tableHTML += `<tr>`;
+                tableHTML += `<td class="mentor-name" rowspan="2">${mentor.name}</td>`;
+                tableHTML += `<td class="waktu">Pagi</td>`;
+                datesToDisplay.forEach(date => {
+                    const dateString = toLocalDateString(date);
+                    const key = `${dateString}_pagi`;
+                    const presentMentors = attendanceData.get(key);
+                    
+                    const isHolidayPagi = holidays.some(h => h.date === dateString && (h.time === "Pagi" || h.time === "Pagi & Sore"));
+                    const cellClass = isHolidayPagi ? 'holiday-cell' : '';
+
+                    if (presentMentors && presentMentors.has(mentor.name)) {
+                        tableHTML += `<td class="${cellClass}"><i data-lucide="check" class="w-4 h-4 mx-auto text-green-400"></i></td>`;
+                        totalPagi++;
+                    } else {
+                        tableHTML += `<td class="${cellClass}"></td>`;
+                    }
+                });
+                tableHTML += `<td class="font-semibold">${totalPagi}</td>`;
+                
+                // Calculate overall total attendance and overall possible attendance for the percentage
+                const overallTotalAttendance = totalPagi + totalSore;
+                const overallPossibleAttendance = possiblePagiAttendance + possibleSoreAttendance;
+                
+                const percentageOverall = overallPossibleAttendance > 0 ? ((overallTotalAttendance / overallPossibleAttendance) * 100).toFixed(2) : '0.00';
+                tableHTML += `<td class="font-semibold" rowspan="2">${percentageOverall}%</td>`; // Percentage for Pagi & Sore combined
+                tableHTML += `</tr>`;
+
+                // Sore Row
+                tableHTML += `<tr>`;
+                tableHTML += `<td class="waktu">Sore</td>`;
+                datesToDisplay.forEach(date => {
+                    const dateString = toLocalDateString(date);
+                    const key = `${dateString}_sore`;
+                    const presentMentors = attendanceData.get(key);
+
+                    const isHolidaySore = holidays.some(h => h.date === dateString && (h.time === "Sore" || h.time === "Pagi & Sore"));
+                    const cellClass = isHolidaySore ? 'holiday-cell' : '';
+
+                    if (presentMentors && presentMentors.has(mentor.name)) {
+                        tableHTML += `<td class="${cellClass}"><i data-lucide="check" class="w-4 h-4 mx-auto text-green-400"></i></td>`;
+                        totalSore++;
+                    } else {
+                        tableHTML += `<td class="${cellClass}"></td>`;
+                    }
+                });
+                tableHTML += `<td class="font-semibold">${totalSore}</td>`;
+                tableHTML += `</tr>`;
+            });
+
+            tableHTML += `</tbody></table>`;
+            dom.rekapTableWrapper.innerHTML = tableHTML;
+            lucide.createIcons();
+        }
+
+        // --- UI Helpers ---
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            if (!toast || !toastMessage) return;
+            toastMessage.textContent = message;
+            toast.className = `toast ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        // --- Event Listeners ---
+        dom.attendanceForm.addEventListener('submit', handleSaveAttendance);
+
+        // --- Initial Setup ---
+        function initializePage() {
+            dom.attendanceDate.value = new Date().toISOString().split('T')[0];
+            lucide.createIcons();
+        }
+
+        initializePage();
+        window.addEventListener('beforeunload', () => {
+            Object.values(unsubscribes).forEach(unsub => unsub && unsub());
+        });
+    </script>
+</body>
+</html>
